@@ -10,3 +10,7 @@ pandas>=2.2.0
 ultralytics>=8.1.0
 pytest>=8.0.0
 httpx>=0.27.0
+onnxruntime
+opencv-python
+numpy
+pydantic
