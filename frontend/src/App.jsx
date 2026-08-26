@@ -4,6 +4,7 @@ import {
   analyzeSonarImage 
 } from './services/api';
 
+import LandingPage from './components/LandingPage';
 import Header from './components/Header';
 import MetricCards from './components/MetricCards';
 import PresetSelector from './components/PresetSelector';
@@ -15,6 +16,7 @@ import ReportModal from './components/ReportModal';
 import { AlertCircle } from 'lucide-react';
 
 export default function App() {
+  const [currentView, setCurrentView] = useState('landing'); // 'landing' | 'dashboard'
   const [systemHealth, setSystemHealth] = useState(null);
   const [presets, setPresets] = useState([]);
   const [selectedPreset, setSelectedPreset] = useState(null);
@@ -28,7 +30,7 @@ export default function App() {
     heading: 85.0,
     altitude: 18.0,
     swath_width_m: 100.0,
-    mission_name: 'MoES-Survey-Alpha'
+    mission_name: 'MoES-Chennai-Transect-04'
   });
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -50,7 +52,7 @@ export default function App() {
       try {
         const sampleList = await fetchSamplePresets();
         setPresets(sampleList);
-        // Auto-select first preset for instant out-of-the-box delight
+        // Auto-select first preset as initial default
         if (sampleList && sampleList.length > 0) {
           handlePresetSelect(sampleList[0]);
         }
@@ -83,7 +85,13 @@ export default function App() {
     }
   };
 
-  // 3. File Input Handler
+  // 3. Preset Direct Fast-Launch from Landing Page
+  const handlePresetAndLaunch = async (preset) => {
+    await handlePresetSelect(preset);
+    setCurrentView('dashboard');
+  };
+
+  // 4. File Input Handler
   const handleFileChange = (newFile) => {
     setFile(newFile);
     setSelectedPreset(null);
@@ -95,7 +103,7 @@ export default function App() {
     }
   };
 
-  // 4. Run Sonar Analysis
+  // 5. Run Sonar Analysis
   const handleRunAnalysis = async () => {
     if (!file) {
       setErrorMessage('Please upload a sonar image or select a quick-demo scenario.');
@@ -132,7 +140,7 @@ export default function App() {
     }
   };
 
-  // 5. Reset Handler
+  // 6. Reset Handler
   const handleReset = () => {
     setFile(null);
     setPreviewUrl('');
@@ -142,18 +150,31 @@ export default function App() {
     setErrorMessage('');
   };
 
+  // If on Landing Page, render the interactive architecture centerpiece
+  if (currentView === 'landing') {
+    return (
+      <LandingPage
+        onLaunchDashboard={() => setCurrentView('dashboard')}
+        presets={presets}
+        onSelectPresetAndLaunch={handlePresetAndLaunch}
+      />
+    );
+  }
+
+  // Otherwise render Live Operator Dashboard
   return (
-    <div className="min-h-screen flex flex-col bg-sonar-950 text-slate-100">
-      {/* HUD Header */}
+    <div className="min-h-screen flex flex-col bg-[#141414] text-[#E0E0E0] font-sans selection:bg-[#c98a4b] selection:text-[#141414]">
+      {/* Tactical Header with Return to Architecture Link */}
       <Header
         systemHealth={systemHealth}
         analysisResult={analysisResult}
         onOpenReport={() => setIsReportModalOpen(true)}
+        onReturnToLanding={() => setCurrentView('landing')}
       />
 
-      {/* Main Container */}
+      {/* Main Command Center Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 space-y-4">
-        {/* Quick Demo Preset Selector */}
+        {/* Asymmetric State-Driven Calibrated Transects */}
         <PresetSelector
           presets={presets}
           selectedPreset={selectedPreset}
@@ -163,19 +184,19 @@ export default function App() {
 
         {/* Error Notification Banner */}
         {errorMessage && (
-          <div className="bg-rose-950/60 border border-rose-500/50 rounded-lg p-3 flex items-center gap-3 text-xs font-mono text-rose-200">
-            <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+          <div className="bg-[#c54b4b]/15 border border-[#c54b4b]/40 rounded-[2px] p-3.5 flex items-center gap-3 text-[13px] font-mono text-slate-200">
+            <AlertCircle className="w-4 h-4 text-[#c54b4b] flex-shrink-0" />
             <div className="flex-1">{errorMessage}</div>
             <button
               onClick={() => setErrorMessage('')}
-              className="text-slate-400 hover:text-white"
+              className="text-slate-400 hover:text-white px-2.5 py-0.5 rounded-[2px] bg-[#141414] border border-white/10 text-[12px]"
             >
               Dismiss
             </button>
           </div>
         )}
 
-        {/* KPI Metrics Summary Row */}
+        {/* KPI Metrics Summary Row with Faint Bathymetric Contour Watermark */}
         <MetricCards
           summary={analysisResult?.summary}
           processingTimeMs={analysisResult?.processing_time_ms}
@@ -184,7 +205,7 @@ export default function App() {
 
         {/* 2-Column Tactical Intelligence Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Left Column (5 Cols): Ingestion Telemetry + Inspection Details */}
+          {/* Left Column (5 Cols): Telemetry Ingestion + Inspector */}
           <div className="lg:col-span-5 space-y-4">
             <TelemetryControl
               file={file}
@@ -203,7 +224,7 @@ export default function App() {
             />
           </div>
 
-          {/* Right Column (7 Cols): Sonar Visualizer + GIS Maritime Map */}
+          {/* Right Column (7 Cols): Sonar Swath Viewport + GIS Map */}
           <div className="lg:col-span-7 space-y-4">
             <SonarViewer
               analysisResult={analysisResult}
@@ -229,9 +250,18 @@ export default function App() {
         analysisResult={analysisResult}
       />
 
-      {/* Footer */}
-      <footer className="mt-8 py-4 border-t border-sonar-800/80 text-center font-mono text-[11px] text-slate-500">
-        SonarSentinel Maritime Defense & Ocean Floor Intelligence • Ministry of Earth Sciences (MoES) Problem SIH26057 • Smart India Hackathon
+      {/* Tactical Nautical Footer */}
+      <footer className="mt-8 py-5 border-t border-white/08 bg-[#141414] text-center font-mono text-[12.5px] text-slate-500 flex flex-col items-center gap-1.5">
+        <div className="flex items-center gap-2.5 text-slate-400">
+          <span>Ministry of Earth Sciences (MoES)</span>
+          <span>•</span>
+          <span className="text-[#c98a4b] font-bold">SIH26057 Track</span>
+          <span>•</span>
+          <span>Autonomous Hydrographic Threat Intelligence</span>
+        </div>
+        <p className="text-slate-600 text-[11.5px]">
+          WGS84 Sonar Swath Trigonometry Engine • Bilateral & CLAHE Acoustic Processing
+        </p>
       </footer>
     </div>
   );

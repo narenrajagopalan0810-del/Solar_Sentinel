@@ -1,57 +1,82 @@
-import React from 'react';
-import { Shield, Radio, Cpu, Activity, Download, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Radio, Cpu, FileText, 
+  Clock, Satellite, LayoutDashboard, ArrowLeft 
+} from 'lucide-react';
 
-export default function Header({ systemHealth, analysisResult, onOpenReport }) {
+export default function Header({ systemHealth, analysisResult, onOpenReport, onReturnToLanding }) {
+  const [utcTime, setUtcTime] = useState('');
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      setUtcTime(now.toUTCString().slice(17, 25) + ' UTC');
+    };
+    updateClock();
+    const timer = setInterval(updateClock, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const isAiMode = systemHealth?.mode === 'AI';
 
   return (
-    <header className="bg-sonar-900/90 border-b border-sonar-700/60 backdrop-blur-md sticky top-0 z-50 px-4 lg:px-6 py-3">
+    <header className="bg-[#1a1a1a] sticky top-0 z-50 px-4 lg:px-8 py-3.5 border-b border-white/10">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
-        {/* Left: Brand & MoES Info */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-lg bg-sonar-cyan/10 border border-sonar-cyan/30 text-sonar-cyan shadow-[0_0_15px_rgba(0,229,255,0.25)]">
-            <Radio className="w-6 h-6 animate-pulse" />
-            <span className="absolute -top-1 -right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sonar-emerald opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-sonar-emerald"></span>
-            </span>
+        {/* Left: Brand & Architecture Link */}
+        <div className="flex items-center gap-3.5">
+          <div className="flex items-center justify-center w-10 h-10 rounded-[2px] bg-[#242424] border border-white/10 text-[#c98a4b]">
+            <Radio className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-bold text-lg tracking-wider text-white flex items-center gap-2">
-                SONARSENTINEL
-                <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-sonar-700/60 text-sonar-cyan border border-sonar-600">
-                  SIH26057 • MoES
-                </span>
+            <div className="flex items-center gap-2.5">
+              <h1 className="font-extrabold text-[22px] tracking-wider text-white flex items-center gap-1.5 font-mono leading-none">
+                SONAR<span className="text-[#c98a4b]">SENTINEL</span>
               </h1>
+              <span className="text-[12px] font-mono font-semibold px-2 py-0.5 rounded-[2px] bg-[#242424] text-slate-300 border border-white/10">
+                SIH26057 • MoES
+              </span>
             </div>
-            <p className="text-xs text-slate-400 font-mono">
-              Automated Underwater Debris & Acoustic Anomaly Detection System
+            <p className="text-[13px] text-slate-400 font-mono tracking-tight flex items-center gap-2 mt-1">
+              <span>Autonomous Underwater Anomaly Detection</span>
+              <span className="text-slate-600">•</span>
+              <span className="text-slate-300">Hydrographic AI</span>
             </p>
           </div>
         </div>
 
-        {/* Right: Status Indicators & Actions */}
+        {/* Right: Live Telemetry Status Badges & Controls */}
         <div className="flex items-center flex-wrap gap-2.5">
-          {/* Online Status */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-sonar-850 border border-sonar-700/70 text-xs font-mono">
-            <Activity className="w-3.5 h-3.5 text-sonar-emerald" />
-            <span className="text-slate-300">SYSTEM:</span>
-            <span className="text-sonar-emerald font-semibold">
-              {systemHealth ? 'ONLINE' : 'CONNECTING...'}
-            </span>
+          {/* Return to Architecture Link */}
+          {onReturnToLanding && (
+            <button
+              onClick={onReturnToLanding}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[2px] bg-[#141414] hover:bg-[#242424] border border-white/10 text-slate-300 hover:text-white transition-colors text-[12.5px] font-mono cursor-pointer"
+              title="Return to System Architecture & Evaluator Guide"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#c98a4b]" />
+              <span>SYSTEM ARCHITECTURE</span>
+            </button>
+          )}
+
+          {/* UTC Clock */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[2px] bg-[#242424] border border-white/10 text-[12.5px] font-mono text-slate-300">
+            <Clock className="w-4 h-4 text-[#c98a4b]" />
+            <span>{utcTime || '00:00:00 UTC'}</span>
           </div>
 
-          {/* Mode Indicator (Demo vs AI) */}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-mono ${
-            isAiMode
-              ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
-              : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
-          }`}>
-            <Cpu className="w-3.5 h-3.5" />
-            <span>MODE:</span>
-            <span className="font-bold tracking-wide">
-              {isAiMode ? 'AI INFERENCE (YOLOv8)' : 'DEMO MODE (ACOUSTIC HEURISTIC)'}
+          {/* GPS Fix */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[2px] bg-[#242424] border border-white/10 text-[12.5px] font-mono text-slate-300">
+            <span className="w-2 h-2 rounded-[1px] bg-emerald-500"></span>
+            <span className="text-slate-400">NAV:</span>
+            <span className="text-slate-200 font-medium">WGS84 3D FIX</span>
+          </div>
+
+          {/* Pipeline Mode */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[2px] bg-[#242424] border border-white/10 text-[12.5px] font-mono text-slate-300">
+            <Cpu className="w-4 h-4 text-[#c98a4b]" />
+            <span className="text-slate-400">MODE:</span>
+            <span className="font-semibold text-slate-200">
+              {isAiMode ? 'YOLOv8 AI' : 'DEMO ENGINE'}
             </span>
           </div>
 
@@ -59,10 +84,10 @@ export default function Header({ systemHealth, analysisResult, onOpenReport }) {
           {analysisResult && (
             <button
               onClick={onOpenReport}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-sonar-cyan/15 hover:bg-sonar-cyan/25 border border-sonar-cyan/40 text-sonar-cyan hover:text-white transition-all text-xs font-mono font-medium shadow-[0_0_10px_rgba(0,229,255,0.15)]"
+              className="flex items-center gap-2 px-4 py-1.5 rounded-[2px] bg-[#242424] hover:bg-[#2e2e2e] border border-white/15 text-[#c98a4b] hover:text-white transition-colors text-[13px] font-mono font-bold cursor-pointer"
             >
-              <FileText className="w-3.5 h-3.5" />
-              <span>MISSION REPORT</span>
+              <FileText className="w-4 h-4" />
+              <span>EXPORT REPORT</span>
             </button>
           )}
         </div>

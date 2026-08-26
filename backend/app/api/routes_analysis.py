@@ -32,28 +32,31 @@ def annotate_detection_image(
     image: np.ndarray,
     detections: list[DetectionResult]
 ) -> np.ndarray:
-    """Draws professional tactical bounding boxes, hazard badges, and telemetry overlays."""
+    """Draws tactical bounding boxes matching the locked class color system."""
     annotated = image.copy()
     if len(annotated.shape) == 2:
         annotated = cv2.cvtColor(annotated, cv2.COLOR_GRAY2BGR)
 
-    color_map = {
-        "CRITICAL": (0, 0, 235),     # Bright Red (BGR)
-        "HIGH": (0, 140, 255),       # Orange
-        "MEDIUM": (0, 220, 240),     # Yellow-Gold
-        "LOW": (220, 220, 0)         # Cyan
+    # Locked Class -> BGR Color Mapping
+    # ghost_net=Yellow, wreckage=Red, pipe=Blue, cylinder=Amber, unknown_anomaly=Gray
+    class_bgr_map = {
+        "ghost_net": (8, 200, 234),       # Yellow/Gold (BGR)
+        "wreckage": (68, 68, 239),        # Red (BGR)
+        "pipe": (246, 130, 59),           # Blue (BGR)
+        "cylinder": (11, 158, 245),       # Amber (BGR)
+        "unknown_anomaly": (184, 163, 148)# Slate Gray (BGR)
     }
 
     for det in detections:
         box = det.bbox
         x1, y1 = int(box.x1), int(box.y1)
         x2, y2 = int(box.x2), int(box.y2)
-        color = color_map.get(det.hazard_level, (0, 255, 0))
+        color = class_bgr_map.get(det.class_name, (184, 163, 148))
 
         # 1. Main target bounding box with corner accents
         cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
         
-        # Corner brackets for tactical look
+        # Tactical corner brackets
         corner_len = min(12, int((x2 - x1) * 0.25))
         cv2.line(annotated, (x1, y1), (x1 + corner_len, y1), color, 3)
         cv2.line(annotated, (x1, y1), (x1, y1 + corner_len), color, 3)
@@ -62,20 +65,20 @@ def annotate_detection_image(
         cv2.line(annotated, (x1, y2), (x1 + corner_len, y2), color, 3)
         cv2.line(annotated, (x1, y2), (x1, y2 - corner_len), color, 3)
         cv2.line(annotated, (x2, y2), (x2 - corner_len, y2), color, 3)
-        cv2.line(annotated, (x2, y2), (x2, y2 - corner_len), color, 3)
+        cv2.line(annotated, (x2, y2), (x2 - corner_len, y2), color, 3)
 
         # 2. Label badge
-        shadow_icon = "[SHADOW]" if det.shadow_detected else "[NO-SHDW]"
+        shadow_icon = "[SHDW]" if det.shadow_detected else "[NO-SHDW]"
         label_top = f"{det.class_name.upper()} | {det.hazard_level} {int(det.final_score * 100)}%"
         label_sub = f"AI:{int(det.model_confidence*100)}% PHY:{int(det.acoustic_score*100)}% {shadow_icon}"
         
-        (tw, th), _ = cv2.getTextSize(label_top, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+        (tw, th), _ = cv2.getTextSize(label_top, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
         badge_y1 = max(0, y1 - 32)
-        cv2.rectangle(annotated, (x1, badge_y1), (x1 + max(tw + 12, 190), y1), (20, 20, 24), -1)
-        cv2.rectangle(annotated, (x1, badge_y1), (x1 + max(tw + 12, 190), y1), color, 1)
+        cv2.rectangle(annotated, (x1, badge_y1), (x1 + max(tw + 12, 195), y1), (12, 16, 24), -1)
+        cv2.rectangle(annotated, (x1, badge_y1), (x1 + max(tw + 12, 195), y1), color, 1)
         
-        cv2.putText(annotated, label_top, (x1 + 4, badge_y1 + 13), cv2.FONT_HERSHEY_SIMPLEX, 0.40, color, 1, cv2.LINE_AA)
-        cv2.putText(annotated, label_sub, (x1 + 4, badge_y1 + 26), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (200, 200, 200), 1, cv2.LINE_AA)
+        cv2.putText(annotated, label_top, (x1 + 4, badge_y1 + 13), cv2.FONT_HERSHEY_SIMPLEX, 0.38, color, 1, cv2.LINE_AA)
+        cv2.putText(annotated, label_sub, (x1 + 4, badge_y1 + 26), cv2.FONT_HERSHEY_SIMPLEX, 0.34, (200, 200, 200), 1, cv2.LINE_AA)
 
     return annotated
 
@@ -159,7 +162,7 @@ async def analyze_sonar_image(
             nav=nav
         )
 
-        # Generate crop thumbnail if possible
+        # Generate crop thumbnail
         cx1 = max(0, int(bbox.x1))
         cy1 = max(0, int(bbox.y1))
         cx2 = min(w, int(bbox.x2))
@@ -186,7 +189,7 @@ async def analyze_sonar_image(
     # 6. Generate Annotated Overlay
     annotated = annotate_detection_image(proc_bgr, detection_results)
 
-    # Encode images as Data URLs for immediate zero-latency frontend rendering
+    # Encode images as Data URLs
     orig_b64 = encode_image_to_base64(preproc["original"])
     proc_b64 = encode_image_to_base64(proc_bgr)
     annot_b64 = encode_image_to_base64(annotated)
@@ -223,18 +226,15 @@ async def analyze_sonar_image(
         processing_time_ms=elapsed_ms
     )
 
-    # Store for reporting
     MISSION_STORE[mission_id] = response
     return response
 
 @router.get("/detections", response_model=list[AnalysisResponse])
 async def list_recent_missions():
-    """Lists recent missions cached in memory."""
     return list(MISSION_STORE.values())
 
 @router.get("/detections/{mission_id}", response_model=AnalysisResponse)
 async def get_mission_detection(mission_id: str):
-    """Retrieves a specific mission's results."""
     if mission_id not in MISSION_STORE:
         raise HTTPException(status_code=404, detail="Mission ID not found.")
     return MISSION_STORE[mission_id]
