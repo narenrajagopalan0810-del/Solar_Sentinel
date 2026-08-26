@@ -1,0 +1,83 @@
+SonarSentinel — Backend Build Order (FastAPI)
+================================================
+
+Build these in order. Each step depends on the one before it — don't skip ahead.
+
+1. SCAFFOLD THE FASTAPI PROJECT
+--------------------------------
+Set up the folder structure:
+  backend/main.py
+  backend/inference.py
+  backend/noise_filter.py
+  backend/geotag.py
+  backend/report.py
+
+Create requirements.txt with: fastapi, uvicorn, onnxruntime, opencv-python, numpy, pydantic
+
+Build a bare FastAPI app with a health-check route. Get
+  uvicorn backend.main:app --reload
+running before writing any real logic.
+
+2. BUILD THE MODEL-LOADING SERVICE
+------------------------------------
+In inference.py, write a class that loads your exported ONNX model once at
+startup (not per-request) using onnxruntime.InferenceSession, and exposes a
+run(image) method that returns raw bounding boxes, class labels, and
+confidence scores. Load it as a FastAPI startup event so it's ready before
+the first request hits.
+
+3. WRITE THE PREPROCESSING PIPELINE
+--------------------------------------
+Before an image reaches the model, it needs despeckling and contrast
+normalization (CLAHE) to match how you preprocessed training data. Put this
+in a shared function so both training and inference use identical
+preprocessing — mismatched preprocessing between train and inference is a
+classic silent bug.
+
+4. BUILD THE DETECTION ENDPOINT
+----------------------------------
+Add a POST /detect endpoint that accepts an uploaded sonar image, runs it
+through preprocessing then inference, and returns raw detections as JSON
+(box coordinates, class, raw confidence). Test this in isolation with a
+sample image before adding any filtering on top.
+
+5. ADD THE ACOUSTIC NOISE FILTER
+------------------------------------
+In noise_filter.py, implement the highlight-to-shadow check: for each
+detection, inspect the region trailing the bounding box in the sonar's look
+direction for a dark shadow. No shadow -> downgrade confidence sharply.
+Wire this into the /detect endpoint so it runs on every detection before
+the response is returned.
+
+6. ADD THE GEOTAGGING ENGINE
+--------------------------------
+In geotag.py, generate a simulated navigation sidecar (lat/lon/heading/
+altitude per image), then implement the slant-range-to-ground-range
+projection to convert each detection's pixel offset into a real WGS84
+lat/long. Attach this to each detection object in the response.
+
+7. BUILD THE REPORT EXPORT ENDPOINT
+---------------------------------------
+Add a POST /report endpoint (or extend /detect) that takes the final
+detection list and serializes it to downloadable JSON and CSV — class,
+confidence, bounding box, lat/long, thumbnail crop path per detection.
+This is what the frontend's "Download Report" button will call.
+
+8. WIRE IT TOGETHER AND TEST END-TO-END
+-------------------------------------------
+Add CORS middleware so the React frontend can call the API from a
+different port, add basic error handling (bad file type, corrupt image,
+empty detections), and run a full manual test: upload a real sonar
+image -> confirm you get back filtered, geotagged detections -> confirm
+the report downloads correctly.
+
+NOTES
+-----
+- Steps 1-4 are the load-bearing part. Once /detect returns real boxes and
+  confidences from a working ONNX model, everything after is enrichment
+  logic on an existing JSON response.
+- Test with real sample images from hour one, not placeholders. Keep 1-2
+  sample sonar images in a demo/ or test_data/ folder.
+- If the ONNX model isn't trained/exported yet, step 2 can start against a
+  dummy inference function returning fake boxes, so the rest of the
+  backend isn't blocked — swap in the real ONNX session once it's ready.
